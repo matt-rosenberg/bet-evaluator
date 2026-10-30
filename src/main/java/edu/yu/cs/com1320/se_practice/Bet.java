@@ -16,7 +16,7 @@ public class Bet implements Comparable<Bet> {
     }
 
     public double compareToPrediction(Prediction prediction) {
-        this.grade = ((prediction.getOdds()) * (1/odds) - 1);
+        this.grade = prediction.getProbability() * odds - 1;
         checked = true;
         return this.grade;
     }

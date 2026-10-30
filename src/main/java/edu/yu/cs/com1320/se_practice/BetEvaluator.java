@@ -1,13 +1,11 @@
 package edu.yu.cs.com1320.se_practice;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.Type;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.PriorityQueue;
+import java.util.*;
 
 
 public class BetEvaluator {
@@ -22,11 +20,13 @@ public class BetEvaluator {
     public BetEvaluator(){
         this.bets = new HashMap<>();
         this.predictions = new HashMap<>();
-        this.orderedBets = new PriorityQueue<>();
+        this.orderedBets = createNewQueue();
         this.betsByTeam = new HashMap<>();
         this.betsByProp = new HashMap<>();
         this.betsBySportsbook = new HashMap<>();
-        gson = new Gson();
+        gson = new GsonBuilder()
+                .registerTypeAdapter(Prop.class, new PropDeserializer())
+                .create();
     }
 
     /**
@@ -42,28 +42,30 @@ public class BetEvaluator {
             if (p == null) {
                 bets.put(b.getBetID(), b);
             } else {
-                if (bets.get(b.getBetID()) == null || bets.get(b.getBetID()).getOdds() < b.getOdds()) {
+                Bet old = bets.get(b.getBetID());
+                if (old == null || old.getOdds() < b.getOdds()) {
+                    if (old != null){
+                        orderedBets.remove(old);
+                        betsByTeam.get(old.getTeam()).remove(old);
+                        betsByProp.get(old.getProp().getPropType()).remove(old);
+                        betsBySportsbook.get(old.getSportsbook()).remove(old);
+                    }
                     b.compareToPrediction(p);
                     bets.put(b.getBetID(), b);
-                    orderedBets.remove(b);
+
+                    if (betsByTeam.get(b.getTeam()) == null) { //if the queues don't exist for this bet, create them
+                        betsByTeam.put(b.getTeam(), createNewQueue());
+                    }
+                    if (betsByProp.get(b.getProp().getPropType()) == null) {
+                        betsByProp.put(b.getProp().getPropType(), createNewQueue());
+                    }
+                    if (betsBySportsbook.get(b.getSportsbook()) == null) {
+                        betsBySportsbook.put(b.getSportsbook(), createNewQueue());
+                    }
+
                     orderedBets.add(b);
-                    PriorityQueue<Bet> pqt = betsByTeam.get(b.getTeam());
-                    PriorityQueue<Bet> pqp = betsByProp.get(b.getProp().getPropType());
-                    PriorityQueue<Bet> pqs = betsBySportsbook.get(b.getSportsbook());
-                    if (pqt == null) {
-                        betsByTeam.put(b.getTeam(), new PriorityQueue<Bet>());
-                    }
-                    if (pqp == null) {
-                        betsByTeam.put(b.getTeam(), new PriorityQueue<Bet>());
-                    }
-                    if (pqs == null) {
-                        betsByTeam.put(b.getTeam(), new PriorityQueue<Bet>());
-                    }
-                    betsByTeam.get(b.getTeam()).remove(b);
                     betsByTeam.get(b.getTeam()).add(b);
-                    betsByProp.get(b.getProp().getPropType()).remove(b);
                     betsByProp.get(b.getProp().getPropType()).add(b);
-                    betsBySportsbook.get(b.getSportsbook()).remove(b);
                     betsBySportsbook.get(b.getSportsbook()).add(b);
                 }
             }
@@ -82,25 +84,22 @@ public class BetEvaluator {
             predictions.put(p.getPredictionID(), p);
             Bet b = bets.get(p.getPredictionID());
             if (b != null){
+                //make sure there is a heap for the team, sportsbook, and prop
+                if (betsByTeam.get(b.getTeam()) == null){
+                    betsByTeam.put(b.getTeam(), createNewQueue());
+                }
+                if (betsBySportsbook.get(b.getSportsbook()) == null){
+                    betsBySportsbook.put(b.getSportsbook(), createNewQueue());
+                }
+                if (betsByProp.get(b.getProp().getPropType()) == null){
+                    betsByProp.put(b.getProp().getPropType(), createNewQueue());
+                }
                 if (b.wasChecked()){
                     orderedBets.remove(b);
-                    //make sure there is a heap for the team, sportsbook, and prop
-                    PriorityQueue<Bet> pqt = betsByTeam.get(b.getTeam());
-                    if (pqt == null){
-                        betsByTeam.put(b.getTeam(), new PriorityQueue<>());
-                    }
-                    PriorityQueue<Bet> pqs = betsBySportsbook.get(b.getSportsbook());
-                    if (pqs == null){
-                        betsBySportsbook.put(b.getSportsbook(), new PriorityQueue<>());
-                    }
-                    PriorityQueue<Bet> pqp = betsByProp.get(b.getProp().getPropType());
-                    if (pqp == null){
-                        betsByProp.put(b.getProp().getPropType(), new PriorityQueue<>());
-                    }
-
                     betsByTeam.get(b.getTeam()).remove(b);
                     betsBySportsbook.get(b.getSportsbook()).remove(b);
                     betsByProp.get(b.getProp().getPropType()).remove(b);
+
                     b.compareToPrediction(p);
                     orderedBets.add(b);
                     betsByTeam.get(b.getTeam()).add(b);
@@ -125,6 +124,7 @@ public class BetEvaluator {
             throw new IllegalArgumentException("there are no bets");
         }
         List<Bet> topBets = new ArrayList<>();
+        numBets = Math.min(numBets, orderedBets.size());
         for (int i = 0; i < numBets; i++){
             topBets.add(orderedBets.poll());
         }
@@ -144,6 +144,7 @@ public class BetEvaluator {
             throw new IllegalArgumentException("there are no bets here");
         }
         List<Bet> topBetsByTeam = new ArrayList<>();
+        numBets = Math.min(numBets, temp.size());
         for (int i = 0; i < numBets; i++){
             topBetsByTeam.add(temp.poll());
         }
@@ -163,6 +164,7 @@ public class BetEvaluator {
             throw new IllegalArgumentException("there are no bets here");
         }
         List<Bet> topBetsBySportsbook = new ArrayList<>();
+        numBets = Math.min(numBets, temp.size());
         for (int i = 0; i < numBets; i++){
             topBetsBySportsbook.add(temp.poll());
         }
@@ -181,6 +183,7 @@ public class BetEvaluator {
             throw new IllegalArgumentException("there are no bets here");
         }
         List<Bet> topBetsByProp = new ArrayList<>();
+        numBets = Math.min(numBets, temp.size());
         for (int i = 0; i < numBets; i++){
             topBetsByProp.add(temp.poll());
         }
@@ -188,6 +191,15 @@ public class BetEvaluator {
             temp.add(topBetsByProp.get(i));
         }
         return topBetsByProp;
+    }
+
+    /**
+     * creates maxHeaps so we can return the bets with the best grades
+     * otherwise the priorityQueue would be a minHeap
+     * @return
+     */
+    private PriorityQueue<Bet> createNewQueue(){
+        return new PriorityQueue<>(Comparator.reverseOrder());
     }
 
 }

@@ -32,8 +32,8 @@ public class BetTest {
 
         double grade = bet.compareToPrediction(prediction);
 
-        assertEquals(-0.7, grade, 0.0001);
-        assertEquals(-0.7, bet.getGrade(), 0.0001);
+        assertEquals(0.2, grade, 0.0001);
+        assertEquals(0.2, bet.getGrade(), 0.0001);
         assertTrue(bet.wasChecked());
     }
 

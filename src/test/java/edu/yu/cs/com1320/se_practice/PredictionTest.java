@@ -15,16 +15,16 @@ public class PredictionTest {
 
         assertEquals(prop, prediction.getProp());
         assertEquals(team, prediction.getPickSubject());
-        assertEquals(0.6, prediction.getOdds(), 0.0001);
+        assertEquals(0.6, prediction.getProbability(), 0.0001);
     }
 
     @Test
     public void setOddsTest() {
         Prediction prediction = new Prediction(new Moneyline(), new Team("Steelers"), 0.6);
 
-        prediction.setOdds(0.75);
+        prediction.setProbability(0.75);
 
-        assertEquals(0.75, prediction.getOdds(), 0.0001);
+        assertEquals(0.75, prediction.getProbability(), 0.0001);
     }
 
     @Test
